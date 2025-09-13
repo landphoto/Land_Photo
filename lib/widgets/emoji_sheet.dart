@@ -14,7 +14,9 @@ Future<String?> showEmojiBottomSheet(
       padding: const EdgeInsets.all(12),
       child: Material(
         color: Colors.white.withOpacity(.06),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: SizedBox(
           height: 340,
           child: Column(
@@ -31,10 +33,9 @@ Future<String?> showEmojiBottomSheet(
               const SizedBox(height: 8),
               Expanded(
                 child: EmojiPicker(
-                  onEmojiSelected: (category, emoji) {
+                  onEmojiSelected: (Category? category, Emoji emoji) {
                     text += emoji.emoji;
                   },
-                  // التغييرات هنا: Config الجديد يستخدم EmojiViewConfig
                   config: const Config(
                     emojiViewConfig: EmojiViewConfig(
                       columns: 8,
