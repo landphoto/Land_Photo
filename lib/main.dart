@@ -162,7 +162,7 @@ class MaintenanceScreen extends StatelessWidget {
 }
 
 class AppStatus {
-  static const REMOTE_STATUS_URL = 'https://example.com/landphoto/status.json';
+  static const REMOTE_STATUS_URL = 'https://raw.githubusercontent.com/landphoto/Land_Photo/main/assets/status.json';
 
   final String latestVersion;
   final String minSupportedVersion;
