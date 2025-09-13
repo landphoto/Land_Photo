@@ -19,15 +19,24 @@ jobs:
           flutter-version: '3.22.0'
           channel: 'stable'
 
-      # مهم: هذا يولّد مجلد android/ (لأن المشروع مرفوع بدون سكافولد أندرويد)
-      - name: Flutter create (generate android folders)
-        run: flutter create --platforms=android .
+      # تأكيد وجود مشروع أندرويد؛ إذا ماكو android/ يتولد تلقائيًا
+      - name: Ensure android folder exists
+        run: |
+          if [ ! -d "android" ]; then
+            echo "android/ not found -> running flutter create ..."
+            flutter create --platforms=android .
+          else
+            echo "android/ already exists"
+          fi
+
+      - name: Flutter doctor (diagnostics)
+        run: flutter doctor -v
 
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build APK (debug)
-        run: flutter build apk
+        run: flutter build apk --debug
 
       - name: Upload APK (debug)
         uses: actions/upload-artifact@v4
