@@ -19,13 +19,15 @@ jobs:
           flutter-version: '3.22.0'
           channel: 'stable'
 
-      # تأكيد وجود مشروع أندرويد؛ إذا ماكو android/ يتولد تلقائيًا
-      - name: Ensure android folder exists
       - name: Ensure android folder exists
         run: |
           if [ ! -d "android" ]; then
             echo "android/ not found -> running flutter create ..."
-            flutter create --platforms=android --project-name land_photo .
+            flutter create --platforms=android --project-name land_photo --org com.landphoto .
+            # اسم التطبيق الظاهر (اختياري تعدله)
+            sed -i 's/<string name="app_name">[^<]*<\/string>/<string name="app_name">Land Photo<\/string>/' android/app/src/main/res/values/strings.xml
+            # applicationId ثابت (اختياري)
+            sed -i 's/applicationId ".\+"/applicationId "com.landphoto.land_photo"/' android/app/build.gradle
           else
             echo "android/ already exists"
           fi
