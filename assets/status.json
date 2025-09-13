@@ -1,0 +1,12 @@
+{
+  "latest_version": "1.0.0",
+  "min_supported_version": "1.0.0",
+  "store_url": "https://example.com/downloads/landphoto.apk",
+  "maintenance": {
+    "active": false,
+    "title": "تنبيه صيانة",
+    "message": "نقوم بصيانة الخوادم لتحسين الأداء.",
+    "start_utc": "2025-09-15T06:02:51Z",
+    "end_utc": "2025-09-15T08:02:51Z"
+  }
+}
