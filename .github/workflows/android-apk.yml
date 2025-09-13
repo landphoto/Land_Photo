@@ -5,10 +5,6 @@ on:
   push:
     branches: [ main, master ]
 
-# لو تريد الخطوة الاختيارية اللي تعمل push للـ android/ فعّل هالسطور:
-# permissions:
-#   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,12 +13,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -30,49 +20,30 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # توليد android/ إذا مفقود
+      # توليد android/ إذا غير موجود + تثبيت اسم مشروع صالح
       - name: Ensure android folder exists
         run: |
           if [ ! -d "android" ]; then
-            echo "android/ not found -> running flutter create ."
-            flutter create --platforms=android .
+            echo "android/ not found -> running flutter create ..."
+            flutter create --platforms=android --project-name land_photo .
           else
             echo "android/ already exists"
           fi
 
-      # (اختياري) كومِت android/ أول مرة للريبو — فعّل permissions فوق لو تريده
-      # - name: Commit generated android folder (first run only)
-      #   run: |
-      #     if [ -n "$(git status --porcelain android)" ]; then
-      #       git config user.name "github-actions[bot]"
-      #       git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      #       git add android
-      #       git commit -m "chore(ci): add generated android folder"
-      #       git push
-      #     else
-      #       echo "No android changes to commit"
-      #     fi
-
-      # حقن إذن الإنترنت في AndroidManifest.xml إن لم يكن موجوداً
+      # إضافة صلاحية الإنترنت تلقائيًا إن لم تكن موجودة
       - name: Ensure INTERNET permission in AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
-              echo "Injecting INTERNET permission into AndroidManifest.xml"
-              awk '{
-                print $0;
-                if ($0 ~ /<manifest/ && !added) {
-                  print "    <uses-permission android=\"http://schemas.android.com/apk/res/android\" />";
-                  print "    <uses-permission android:name=\"android.permission.INTERNET\"/>";
-                  added=1
-                }
-              }' "$MANIFEST" > "$MANIFEST.tmp" && mv "$MANIFEST.tmp" "$MANIFEST"
+              echo "Patching INTERNET permission into AndroidManifest.xml"
+              sed -i '0,/<application/s//<uses-permission android:name="android.permission.INTERNET"\/>\n\n&/' "$MANIFEST"
             else
               echo "INTERNET permission already present"
             fi
           else
-            echo "Manifest not found at $MANIFEST"; exit 1
+            echo "AndroidManifest.xml not found (unexpected)."
+            exit 1
           fi
 
       - name: Flutter doctor (diagnostics)
@@ -81,7 +52,6 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      # Debug APK
       - name: Build APK (debug)
         run: flutter build apk --debug
 
@@ -91,8 +61,7 @@ jobs:
           name: app-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
 
-      # Release APK (unsigned)
-      - name: Build APK (release)
+      - name: Build APK (release, unsigned)
         run: flutter build apk --release
 
       - name: Upload APK (release unsigned)
