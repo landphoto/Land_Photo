@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,6 +18,10 @@ jobs:
         with:
           flutter-version: '3.22.0'
           channel: 'stable'
+
+      # مهم: هذا يولّد مجلد android/ (لأن المشروع مرفوع بدون سكافولد أندرويد)
+      - name: Flutter create (generate android folders)
+        run: flutter create --platforms=android .
 
       - name: Flutter pub get
         run: flutter pub get
