@@ -21,10 +21,11 @@ jobs:
 
       # تأكيد وجود مشروع أندرويد؛ إذا ماكو android/ يتولد تلقائيًا
       - name: Ensure android folder exists
+      - name: Ensure android folder exists
         run: |
           if [ ! -d "android" ]; then
             echo "android/ not found -> running flutter create ..."
-            flutter create --platforms=android .
+            flutter create --platforms=android --project-name land_photo .
           else
             echo "android/ already exists"
           fi
