@@ -36,6 +36,7 @@ Future<String?> showEmojiBottomSheet(
                   onEmojiSelected: (Category? category, Emoji emoji) {
                     text += emoji.emoji;
                   },
+                  // متوافق مع emoji_picker_flutter ^3.1.0
                   config: const Config(
                     emojiViewConfig: EmojiViewConfig(
                       columns: 8,
