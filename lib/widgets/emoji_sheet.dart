@@ -1,8 +1,12 @@
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 
-Future<String?> showEmojiBottomSheet(BuildContext context, {String init = ''}) async {
+Future<String?> showEmojiBottomSheet(
+  BuildContext context, {
+  String init = '',
+}) async {
   String text = init;
+
   return showModalBottomSheet<String>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -27,10 +31,16 @@ Future<String?> showEmojiBottomSheet(BuildContext context, {String init = ''}) a
               const SizedBox(height: 8),
               Expanded(
                 child: EmojiPicker(
-                  onEmojiSelected: (c, e) {
-                    text += e.emoji;
+                  onEmojiSelected: (category, emoji) {
+                    text += emoji.emoji;
                   },
-                  config: const Config(columns: 8, emojiSizeMax: 28),
+                  // التغييرات هنا: Config الجديد يستخدم EmojiViewConfig
+                  config: const Config(
+                    emojiViewConfig: EmojiViewConfig(
+                      columns: 8,
+                      emojiSizeMax: 28,
+                    ),
+                  ),
                 ),
               ),
               Padding(
@@ -39,7 +49,7 @@ Future<String?> showEmojiBottomSheet(BuildContext context, {String init = ''}) a
                   onPressed: () => Navigator.pop(context, text),
                   child: const Text('إدراج'),
                 ),
-              )
+              ),
             ],
           ),
         ),
