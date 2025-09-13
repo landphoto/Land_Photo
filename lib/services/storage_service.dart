@@ -1,20 +1,37 @@
 import 'dart:io';
-import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-final supa = Supabase.instance.client;
+import 'supabase_service.dart';
 
 class StorageService {
-  /// يرفع ملف لصندوق images (تأكّد مسويه من Supabase > Storage)
-  static Future<String> uploadImage({
-    required File file,
-  }) async {
-    final fileName =
-        'img_${DateTime.now().millisecondsSinceEpoch}${p.extension(file.path)}';
+  final _s = S.c;
 
-    await supa.storage.from('images').upload(fileName, file);
-    // توليد URL عام (تأكّد مفعّل Public أو أنشئ Signed URL حسب حاجتك)
-    final publicUrl = supa.storage.from('images').getPublicUrl(fileName);
+  static const imagesBucket  = 'images';
+  static const avatarsBucket = 'avatars';
+
+  Future<String> uploadImageAndCreatePost({
+    required File file,
+    String? caption,
+  }) async {
+    final uid = _s.auth.currentUser!.id;
+    final fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.png';
+    await _s.storage.from(imagesBucket).upload(fileName, file);
+    final publicUrl = _s.storage.from(imagesBucket).getPublicUrl(fileName);
+
+    await _s.from('posts').insert({
+      'user_id': uid,
+      'image_url': publicUrl,
+      'caption': caption,
+    });
+
     return publicUrl;
+  }
+
+  Future<String> uploadAvatar(File file) async {
+    final uid = _s.auth.currentUser!.id;
+    final fileName = 'av_$uid.png';
+    await _s.storage.from(avatarsBucket).upload(fileName, file, upsert: true);
+    final url = _s.storage.from(avatarsBucket).getPublicUrl(fileName);
+    await _s.from('profiles').update({'avatar_url': url}).eq('id', uid);
+    return url;
   }
 }

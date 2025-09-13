@@ -1,45 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class AppTheme {
-  static ThemeData build() {
-    final seed = const Color(0xFF00DBC5); // تركواز ناعم
-    return ThemeData(
-      useMaterial3: true,
-      colorSchemeSeed: seed,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF0B0F14),
-      textTheme: const TextTheme(
-        headlineMedium:
-            TextStyle(fontWeight: FontWeight.w700, letterSpacing: .2),
-        titleLarge: TextStyle(fontWeight: FontWeight.w600),
+class AppColors {
+  static const bg      = Color(0xFF0F1115);
+  static const surface = Color(0x1FFFFFFF);
+  static const mint    = Color(0xFF7CE0D6);
+  static const mintDim = Color(0x807CE0D6);
+  static const text    = Color(0xFFEAECEE);
+  static const hint    = Color(0x99EAECEE);
+  static const danger  = Color(0xFFE57373);
+}
+
+ThemeData buildTheme() {
+  final base = ThemeData.dark(useMaterial3: true);
+  final textTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme).apply(
+    bodyColor: AppColors.text,
+    displayColor: AppColors.text,
+  );
+  return base.copyWith(
+    scaffoldBackgroundColor: AppColors.bg,
+    colorScheme: base.colorScheme.copyWith(
+      primary: AppColors.mint,
+      secondary: AppColors.mint,
+      surface: AppColors.bg,
+    ),
+    textTheme: textTheme,
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.surface,
+      hintStyle: textTheme.bodyMedium?.copyWith(color: AppColors.hint),
+      labelStyle: textTheme.bodyMedium?.copyWith(color: AppColors.hint),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: AppColors.mintDim, width: 1),
       ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.mint, width: 1.5),
       ),
-      cardTheme: CardTheme(
-        elevation: 0,
-        color: Colors.white.withOpacity(.06),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.danger),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white.withOpacity(.06),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(.15)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(.12)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF00DBC5)),
-        ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
       ),
-    );
-  }
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+    ),
+  );
 }

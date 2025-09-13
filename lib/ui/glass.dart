@@ -1,52 +1,33 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../theme.dart';
 
 class Glass extends StatelessWidget {
   final Widget child;
-  final double blur;
-  final double opacity;
   final EdgeInsets padding;
-  final BorderRadius radius;
-  final Gradient? gradient;
+  final double radius;
+  final Color? tint;
 
   const Glass({
     super.key,
     required this.child,
-    this.blur = 20,
-    this.opacity = .08,
-    this.padding = const EdgeInsets.all(14),
-    this.radius = const BorderRadius.all(Radius.circular(20)),
-    this.gradient,
+    this.padding = const EdgeInsets.all(16),
+    this.radius = 24,
+    this.tint,
   });
 
   @override
   Widget build(BuildContext context) {
-    final g = gradient ?? LinearGradient(
-      colors: [
-        Colors.white.withOpacity(opacity + .04),
-        Colors.white.withOpacity(opacity),
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-
     return ClipRRect(
-      borderRadius: radius,
+      borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            gradient: g,
-            border: Border.all(color: Colors.white.withOpacity(.12), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.35),
-                blurRadius: 24,
-                spreadRadius: -6,
-                offset: const Offset(0, 10),
-              )
-            ],
+            color: (tint ?? AppColors.surface),
+            border: Border.all(color: AppColors.mintDim, width: 1),
+            borderRadius: BorderRadius.circular(radius),
           ),
           child: child,
         ),

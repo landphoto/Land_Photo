@@ -1,49 +1,38 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-final supa = Supabase.instance.client;
+import 'supabase_service.dart';
 
 class AuthService {
-  static Session? get session => supa.auth.currentSession;
-  static User? get user => supa.auth.currentUser;
+  final _s = S.c;
 
-  static Future<AuthResponse> signUp({
+  Future<AuthResponse> signUp({
     required String email,
     required String password,
-    String? username,
+    required String username,
   }) async {
-    final res = await supa.auth.signUp(
+    final res = await _s.auth.signUp(
       email: email,
       password: password,
-      data: username == null ? null : {'username': username},
+      data: {'username': username},
+      emailRedirectTo: _emailRedirect,
     );
-
-    // أنشئ صف في profiles بعد التسجيل (إن وُجد user)
     final uid = res.user?.id;
     if (uid != null) {
-      await supa.from('profiles').upsert({
+      await _s.from('profiles').upsert({
         'id': uid,
-        'username': username ?? email.split('@').first,
-        'avatar_url': null,
+        'username': username,
       });
     }
     return res;
   }
 
-  static Future<AuthResponse> signIn({
-    required String email,
-    required String password,
-  }) {
-    return supa.auth.signInWithPassword(email: email, password: password);
+  Future<AuthResponse> signIn(String email, String password) {
+    return _s.auth.signInWithPassword(email: email, password: password);
   }
 
-  static Future<void> signOut() => supa.auth.signOut();
+  Future<void> signOut() => _s.auth.signOut();
 
-  /// جلب بروفايل المستخدم (إن احتجتها)
-  static Future<Map<String, dynamic>?> getMyProfile() async {
-    final uid = user?.id;
-    if (uid == null) return null;
-    final data =
-        await supa.from('profiles').select().eq('id', uid).maybeSingle();
-    return data;
-  }
+  String get _emailRedirect =>
+      _s.restUrl.replace(path: '/auth/v1/callback').toString();
+
+  User? get currentUser => _s.auth.currentUser;
 }
