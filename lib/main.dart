@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import 'theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/feed_screen.dart';
-import 'screens/comment_composer.dart';
 import 'screens/upload_screen.dart';
+import 'services/supabase_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseService.init();        // ????? Supabase
   runApp(const LandPhotoApp());
 }
 
@@ -18,17 +18,17 @@ class LandPhotoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final router = GoRouter(
+      initialLocation: '/', // ?? ????? ???? ?????? ??? feed
+      redirect: (ctx, state) {
+        final session = Supabase.instance.client.auth.currentSession;
+        final loggingIn = state.fullPath == '/';
+        if (session == null && !loggingIn) return '/';
+        if (session != null && loggingIn) return '/feed';
+        return null;
+      },
       routes: [
-        // ???? ????? ?????? (???????)
         GoRoute(path: '/', builder: (_, __) => const LoginScreen()),
-
-        // ???? ???Feed
         GoRoute(path: '/feed', builder: (_, __) => const FeedScreen()),
-
-        // ???? ?????????
-        GoRoute(path: '/comment', builder: (_, __) => const CommentComposer()),
-
-        // ???? ??? ????
         GoRoute(path: '/upload', builder: (_, __) => const UploadScreen()),
       ],
     );
