@@ -1,112 +1,95 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import '../services/storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UploadScreen extends StatefulWidget {
-  const UploadScreen({super.key});
+  const UploadScreen({Key? key}) : super(key: key);
 
   @override
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  final _caption = TextEditingController();
-  XFile? _file;
+  File? _file;
+  String? _url;
   bool _loading = false;
+  final picker = ImagePicker();
 
   Future<void> _pick() async {
-    final pic = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 88);
-    if (pic != null) setState(() => _file = pic);
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+
+    // انسخ لـ directory مؤقت (Android 10+)
+    final dir = await getTemporaryDirectory();
+    final tmp = File('${dir.path}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}');
+    final data = await picked.readAsBytes();
+    await tmp.writeAsBytes(data);
+
+    setState(() => _file = tmp);
   }
 
   Future<void> _upload() async {
-    if (_file == null) {
-      _snack('اختر صورة أولاً');
-      return;
-    }
+    if (_file == null) return;
     setState(() => _loading = true);
     try {
-      final client = Supabase.instance.client;
-      final user = client.auth.currentUser!;
-      final bytes = await _file!.readAsBytes();
-
-      final ext = p.extension(_file!.path); // .jpg / .png
-      final path = '${user.id}/${DateTime.now().millisecondsSinceEpoch}$ext';
-
-      // رفع إلى Storage bucket: photos
-      await client.storage.from('photos').uploadBinary(
-            path,
-            bytes,
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
-          );
-
-      // جلب رابط عام
-      final publicUrl = client.storage.from('photos').getPublicUrl(path);
-
-      // إدخال صف في posts
-      await client.from('posts').insert({
-        'user_id': user.id,
+      final publicUrl = await StorageService.uploadImage(file: _file!);
+      // مثال: حفظ بوست بجدول posts
+      final uid = Supabase.instance.client.auth.currentUser!.id;
+      await Supabase.instance.client.from('posts').insert({
+        'user_id': uid,
         'image_url': publicUrl,
-        'caption': _caption.text.trim(),
+        'caption': 'من التطبيق 📸',
       });
-
-      _snack('تم النشر!');
-      if (mounted) Navigator.pop(context);
+      setState(() => _url = publicUrl);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم الرفع بنجاح')),
+      );
     } catch (e) {
-      _snack('فشل الرفع: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل الرفع: $e')),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _snack(String m) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('نشر صورة')),
-      body: ListView(
+      appBar: AppBar(title: const Text('رفع صورة')),
+      body: Padding(
         padding: const EdgeInsets.all(16),
-        children: [
-          GestureDetector(
-            onTap: _pick,
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white24),
-                  color: Colors.white.withOpacity(.04),
+        child: Column(
+          children: [
+            if (_file != null) Image.file(_file!, height: 200),
+            if (_url != null) SelectableText(_url!),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.photo),
+                    label: const Text('اختيار صورة'),
+                    onPressed: _loading ? null : _pick,
+                  ),
                 ),
-                child: _file == null
-                    ? const Icon(Icons.add_a_photo, size: 48)
-                    : Image.file(File(_file!.path), fit: BoxFit.cover),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.cloud_upload),
+                    label: const Text('رفع'),
+                    onPressed: _loading ? null : _upload,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _caption,
-            decoration: const InputDecoration(
-              labelText: 'وصف/تعليق (اختياري)',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _loading ? null : _upload,
-            icon: _loading
-                ? const SizedBox(
-                    width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.cloud_upload),
-            label: const Text('رفع'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

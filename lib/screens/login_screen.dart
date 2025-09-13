@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_service.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({Key? key}) : super(key: key);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -14,115 +14,131 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _username = TextEditingController();
+  bool _isLogin = true;
   bool _loading = false;
+  String? _error;
 
-  Future<void> _signIn() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-    try {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
-      await SupabaseService.ensureProfileRow();
-      if (mounted) context.go('/feed');
-    } on AuthException catch (e) {
-      _snack(e.message);
-    } catch (e) {
-      _snack('حدث خطأ غير متوقع');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    _username.dispose();
+    super.dispose();
   }
 
-  Future<void> _signUp() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final res = await Supabase.instance.client.auth.signUp(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
-      if (res.user != null) {
-        await SupabaseService.ensureProfileRow();
-        _snack('تم إنشاء الحساب! تم تسجيل الدخول.');
-        if (mounted) context.go('/feed');
+      if (_isLogin) {
+        await AuthService.signIn(email: _email.text.trim(), password: _password.text);
+      } else {
+        await AuthService.signUp(
+          email: _email.text.trim(),
+          password: _password.text,
+          username: _username.text.trim().isEmpty ? null : _username.text.trim(),
+        );
+      }
+
+      // إذا أكدّت الإيميل إلغاء شرط التأكيد، وإلا ظهّر رسالة
+      final session = AuthService.session;
+      if (session != null) {
+        if (!mounted) return;
+        context.go('/feed');
+      } else {
+        setState(() => _error = 'تم إنشاء الحساب. تحقق من بريدك لتأكيد الإيميل.');
       }
     } on AuthException catch (e) {
-      _snack(e.message);
+      setState(() => _error = e.message);
     } catch (e) {
-      _snack('حدث خطأ غير متوقع');
+      setState(() => _error = 'حدث خطأ غير متوقع');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  void _snack(String m) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   @override
   Widget build(BuildContext context) {
-    final inputBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Colors.tealAccent, width: 1.2),
-    );
-
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Land Photo',
-                    style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 28),
-                TextFormField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'البريد الإلكتروني',
-                    prefixIcon: const Icon(Icons.person),
-                    border: inputBorder,
-                    enabledBorder: inputBorder,
-                    focusedBorder: inputBorder,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Land Photo',
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                   ),
-                  validator: (v) =>
-                      (v == null || !v.contains('@')) ? 'أدخل بريدًا صحيحًا' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _password,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'كلمة المرور',
-                    prefixIcon: const Icon(Icons.lock),
-                    border: inputBorder,
-                    enabledBorder: inputBorder,
-                    focusedBorder: inputBorder,
+                  const SizedBox(height: 32),
+
+                  if (!_isLogin)
+                    TextFormField(
+                      controller: _username,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.person),
+                        labelText: 'اسم المستخدم',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  if (!_isLogin) const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.email),
+                      labelText: 'البريد الإلكتروني',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) =>
+                        (v == null || !v.contains('@')) ? 'بريد غير صالح' : null,
                   ),
-                  validator: (v) =>
-                      (v == null || v.length < 6) ? '6 أحرف على الأقل' : null,
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _loading ? null : _signIn,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 22, width: 22, child: CircularProgressIndicator())
-                        : const Text('تسجيل الدخول'),
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: _password,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.lock),
+                      labelText: 'كلمة المرور',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.length < 6) ? '6 أحرف على الأقل' : null,
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: _loading ? null : _signUp,
-                  child: const Text('إنشاء حساب جديد'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                    ),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _loading ? null : _submit,
+                      child: Text(_isLogin ? 'تسجيل الدخول' : 'إنشاء حساب'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _isLogin = !_isLogin);
+                    },
+                    child: Text(_isLogin ? 'إنشاء حساب جديد' : 'لديك حساب؟ تسجيل الدخول'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

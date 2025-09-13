@@ -23,10 +23,7 @@ class PostCard extends StatelessWidget {
             padding: const EdgeInsets.all(8.0),
             child: Text(
               username,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
           Image.network(imageUrl, fit: BoxFit.cover),
