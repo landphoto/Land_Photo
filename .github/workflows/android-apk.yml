@@ -20,16 +20,19 @@ jobs:
           channel: 'stable'
 
       - name: Ensure android folder exists
+        shell: bash
         run: |
           if [ ! -d "android" ]; then
             echo "android/ not found -> running flutter create ..."
-            flutter create --platforms=android --project-name land_photo --org com.landphoto .
-            # اسم التطبيق الظاهر (اختياري تعدله)
-            sed -i 's/<string name="app_name">[^<]*<\/string>/<string name="app_name">Land Photo<\/string>/' android/app/src/main/res/values/strings.xml
-            # applicationId ثابت (اختياري)
-            sed -i 's/applicationId ".\+"/applicationId "com.landphoto.land_photo"/' android/app/build.gradle
+            flutter create --platforms=android --project-name land_photo .
           else
             echo "android/ already exists"
+          fi
+          # لو تحب تغيّر app_name مستقبلاً، خليه اختياري:
+          if [ -f android/app/src/main/res/values/strings.xml ]; then
+            echo "strings.xml found (no edit needed)"
+          else
+            echo "strings.xml not found (skip)"
           fi
 
       - name: Flutter doctor (diagnostics)
@@ -39,9 +42,10 @@ jobs:
         run: flutter pub get
 
       - name: Build APK (debug)
-        run: flutter build apk --debug
+        run: flutter build apk
 
       - name: Upload APK (debug)
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
@@ -51,6 +55,7 @@ jobs:
         run: flutter build apk --release
 
       - name: Upload APK (release unsigned)
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release-unsigned-apk
