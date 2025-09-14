@@ -4,32 +4,30 @@ class LikeService {
   final _s = Supabase.instance.client;
 
   Future<int> countLikes(String postId) async {
-    final res = await _s
+    final rows = await _s
         .from('likes')
-        .select('id', const FetchOptions(count: CountOption.exact))
+        .select('id')
         .eq('post_id', postId);
-
-    return res.count ?? 0;
+    // ???? ????? ?????? ????? ????? count/head/FetchOptions
+    return (rows as List).length;
   }
 
   Future<bool> likedByMe(String postId) async {
     final userId = _s.auth.currentUser!.id;
-
-    final res = await _s
+    final rows = await _s
         .from('likes')
         .select('id')
         .eq('post_id', postId)
-        .eq('user_id', userId);
-
-    return res.isNotEmpty;
+        .eq('user_id', userId)
+        .limit(1);
+    return (rows as List).isNotEmpty;
   }
 
   Future<void> toggleLike(String postId) async {
     final userId = _s.auth.currentUser!.id;
+    final isLiked = await likedByMe(postId);
 
-    final liked = await likedByMe(postId);
-
-    if (liked) {
+    if (isLiked) {
       await _s.from('likes').delete().match({
         'post_id': postId,
         'user_id': userId,
@@ -38,6 +36,7 @@ class LikeService {
       await _s.from('likes').insert({
         'post_id': postId,
         'user_id': userId,
+        'created_at': DateTime.now().toIso8601String(),
       });
     }
   }
