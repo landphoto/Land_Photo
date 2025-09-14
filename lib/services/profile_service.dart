@@ -1,64 +1,48 @@
-import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'storage_service.dart';
 
-final _s = Supabase.instance.client;
-
-/// ???? ????? ?????????
 class ProfileService {
-  const ProfileService._();
-  static const ProfileService I = ProfileService._();
+  final _s = Supabase.instance.client;
 
-  /// ????? ?? ???????? ?? ?? ???? profiles
+  /// ???? ?? ?? profiles ??? ?? ?????
   Future<void> ensureRow() async {
-    final uid = _s.auth.currentUser?.id;
-    if (uid == null) return;
+    final u = _s.auth.currentUser;
+    if (u == null) return;
 
-    final existsRes = await _s
+    final exists = await _s
         .from('profiles')
         .select('id')
-        .eq('id', uid)
-        .maybeSingle();
+        .eq('id', u.id)
+        .limit(1);
 
-    if (existsRes == null) {
+    if (exists.isEmpty) {
       await _s.from('profiles').insert({
-        'id': uid,
-        'username': null,
+        'id': u.id,
+        'username': (u.email ?? '').split('@').first,
         'avatar_url': null,
         'created_at': DateTime.now().toIso8601String(),
       });
     }
   }
 
-  Future<Map<String, dynamic>?> getMyProfile() async {
-    final uid = _s.auth.currentUser?.id;
-    if (uid == null) return null;
-    return await _s.from('profiles').select().eq('id', uid).maybeSingle();
+  Future<void> updateProfile({String? username, String? avatarUrl}) async {
+    final u = _s.auth.currentUser;
+    if (u == null) return;
+
+    await _s.from('profiles').update({
+      if (username != null) 'username': username,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+    }).eq('id', u.id);
   }
 
-  Future<void> updateUsername(String username) async {
-    final uid = _s.auth.currentUser?.id;
-    if (uid == null) return;
-    await _s.from('profiles').update({'username': username}).eq('id', uid);
-  }
+  /// ???? ????????? ?? ?????? ???? ??????? (username, avatar_url)
+  Future<List<Map<String, dynamic>>> fetchComments(String postId) async {
+    final rows = await _s
+        .from('comments')
+        .select(
+            'id, content, user_id, created_at, profiles(username, avatar_url)')
+        .eq('post_id', postId)
+        .order('created_at', ascending: true);
 
-  /// ??? ???? ?????? ?????? ?????? ?? ?????????
-  Future<String> uploadAvatar({
-    required Uint8List bytes,
-    String bucket = 'avatars',
-  }) async {
-    final uid = _s.auth.currentUser?.id;
-    if (uid == null) throw Exception('No user');
-
-    final url = await StorageService.I.uploadToBucket(
-      bucket: bucket,
-      path: '$uid.jpg',
-      bytes: bytes,
-      contentType: 'image/jpeg',
-      upsert: true,
-    );
-
-    await _s.from('profiles').update({'avatar_url': url}).eq('id', uid);
-    return url;
+    return List<Map<String, dynamic>>.from(rows);
   }
 }
