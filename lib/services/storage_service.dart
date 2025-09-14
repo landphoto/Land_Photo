@@ -1,36 +1,29 @@
-import 'dart:io';
-import 'package:path/path.dart' as p;
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../constants.dart';
 
+final _s = Supabase.instance.client;
+
+/// ???? ??????? ???? ??????? (Storage)
 class StorageService {
-  final _s = Supabase.instance.client;
+  const StorageService._();
+  static const StorageService I = StorageService._();
 
-  Future<String> uploadPostImage(File file) async {
-    final ext = p.extension(file.path);
-    final name = 'img_${DateTime.now().millisecondsSinceEpoch}$ext';
-    final path = '${AppStorage.postsPath}/$name';
+  /// ???? ?????? ??? ??? ????? ????? ???? ???
+  Future<String> uploadToBucket({
+    required String bucket,
+    required String path,
+    required Uint8List bytes,
+    String contentType = 'image/jpeg',
+    bool upsert = true,
+  }) async {
+    final storage = _s.storage.from(bucket);
 
-    await _s.storage.from(AppStorage.imagesBucket).upload(
+    await storage.uploadBinary(
       path,
-      file,
-      fileOptions: const FileOptions(upsert: true, cacheControl: '3600'),
+      bytes,
+      fileOptions: FileOptions(contentType: contentType, upsert: upsert),
     );
 
-    return _s.storage.from(AppStorage.imagesBucket).getPublicUrl(path);
-  }
-
-  Future<String> uploadAvatar(File file, String userId) async {
-    final ext  = p.extension(file.path);
-    final name = 'avatar_$userId$ext';
-    final path = '${AppStorage.avatarsPath}/$name';
-
-    await _s.storage.from(AppStorage.imagesBucket).upload(
-      path,
-      file,
-      fileOptions: const FileOptions(upsert: true, cacheControl: '3600'),
-    );
-
-    return _s.storage.from(AppStorage.imagesBucket).getPublicUrl(path);
+    return storage.getPublicUrl(path);
   }
 }

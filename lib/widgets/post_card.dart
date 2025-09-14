@@ -1,9 +1,8 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/like_service.dart';
 
-/// ????? ????? ?? ????? ???? + ????? ???? + ??????? ??? ????.
-/// ???????? ?? ???? ??????? ????? ??????:
-///   id  | image_url (?? url) | title (???????) | caption (???????)
+/// ??? ????? ?? ???? + ???? + ??????? ???? ?????
 class PostCard extends StatefulWidget {
   const PostCard({super.key, required this.post});
 
@@ -13,213 +12,162 @@ class PostCard extends StatefulWidget {
   State<PostCard> createState() => _PostCardState();
 }
 
-class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin {
-  final _s = Supabase.instance.client;
+class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
+  final _likes = LikeService.I;
+  late int _count;
+  bool _liked = false;
 
-  int _likeCount = 0;
-  bool _likedByMe = false;
-  bool _busy = false;
-
-  late final AnimationController _heartCtrl;
-  late final Animation<double> _heartScale;
+  late final AnimationController _burstCtrl =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
+  final _rnd = Random();
 
   @override
   void initState() {
     super.initState();
-    _heartCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-      lowerBound: 0.8,
-      upperBound: 1.2,
-    );
-    _heartScale = CurvedAnimation(parent: _heartCtrl, curve: Curves.easeOutBack);
-
-    _loadLikeState();
+    _bootstrap();
   }
 
-  @override
-  void didUpdateWidget(covariant PostCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.post['id'] != widget.post['id']) {
-      _loadLikeState();
+  Future<void> _bootstrap() async {
+    final id = widget.post['id'].toString();
+    final c = await _likes.countLikes(id);
+    final m = await _likes.likedByMe(id);
+    if (!mounted) return;
+    setState(() {
+      _count = c;
+      _liked = m;
+    });
+  }
+
+  Future<void> _onToggle() async {
+    final id = widget.post['id'].toString();
+    final nowLiked = await _likes.toggleLike(id);
+    if (!mounted) return;
+    setState(() {
+      _liked = nowLiked;
+      _count += nowLiked ? 1 : -1;
+    });
+    if (nowLiked) {
+      _burstCtrl
+        ..reset()
+        ..forward();
     }
   }
 
   @override
   void dispose() {
-    _heartCtrl.dispose();
+    _burstCtrl.dispose();
     super.dispose();
-  }
-
-  String get _postId => widget.post['id'].toString();
-
-  Future<void> _loadLikeState() async {
-    final uid = _s.auth.currentUser?.id;
-    if (!mounted) return;
-
-    try {
-      // ??????? (????? ?????: ???? ids ?? ????? ?????)
-      final rows = await _s
-          .from('likes')
-          .select('id')
-          .eq('post_id', _postId);
-
-      final likedRows = uid == null
-          ? const []
-          : await _s
-              .from('likes')
-              .select('id')
-              .eq('post_id', _postId)
-              .eq('user_id', uid);
-
-      if (!mounted) return;
-      setState(() {
-        _likeCount = (rows as List).length;
-        _likedByMe = (likedRows as List).isNotEmpty;
-      });
-    } catch (_) {
-      // ????? ????? ?? ???? Snackbar ??? ?????
-    }
-  }
-
-  Future<void> _toggleLike() async {
-    if (_busy) return;
-    final uid = _s.auth.currentUser?.id;
-    if (uid == null) {
-      // ???? ????? ???????? ????? ????? ??????
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('???? ???? ?????? ?? ???????')),
-      );
-      return;
-    }
-
-    setState(() => _busy = true);
-    try {
-      if (_likedByMe) {
-        // ????? ??????
-        await _s
-            .from('likes')
-            .delete()
-            .eq('post_id', _postId)
-            .eq('user_id', uid);
-        if (!mounted) return;
-        setState(() {
-          _likedByMe = false;
-          _likeCount = (_likeCount - 1).clamp(0, 1 << 31);
-        });
-      } else {
-        // ????? ????
-        await _s.from('likes').insert({
-          'post_id': _postId,
-          'user_id': uid,
-        });
-        if (!mounted) return;
-        setState(() {
-          _likedByMe = true;
-          _likeCount++;
-        });
-
-        // ???? ??????? ?????
-        _heartCtrl
-          ..reset()
-          ..forward();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('????? ????? ???????: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  /// ??? ??????? ??????? ?? ??????? ????????? (????? ???? ?????)
-  Future<List<dynamic>> fetchComments() async {
-    final rows = await _s
-        .from('comments')
-        .select(
-            'id, content, user_id, created_at, profiles(username, avatar_url)')
-        .eq('post_id', _postId)
-        .order('created_at');
-    return rows;
   }
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl =
-        (widget.post['image_url'] ?? widget.post['url'] ?? '') as String? ?? '';
+    final theme = Theme.of(context);
+    final imageUrl = widget.post['image_url'] as String?;
 
     return Card(
+      color: theme.colorScheme.surface,
       elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ??????
-            if (imageUrl.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 1,
-                child: Ink.image(
-                  image: NetworkImage(imageUrl),
-                  fit: BoxFit.cover,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (imageUrl != null)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              child: AspectRatio(
+                aspectRatio: 4 / 5,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(imageUrl, fit: BoxFit.cover),
+                    // ??????? ??????
+                    AnimatedBuilder(
+                      animation: _burstCtrl,
+                      builder: (_, __) {
+                        final t = _burstCtrl.value;
+                        return IgnorePointer(
+                          child: CustomPaint(
+                            painter: _HeartsPainter(progress: t, rnd: _rnd),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
-
-            // ???? ???????
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  ScaleTransition(
-                    scale: _heartScale,
-                    child: IconButton(
-                      onPressed: _toggleLike,
-                      icon: Icon(
-                        _likedByMe ? Icons.favorite : Icons.favorite_border,
-                        color: _likedByMe
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '$_likeCount',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () async {
-                      // ????: ???? ???? ????????? (?? ???? CommentsScreen)
-                      // Navigator.push(context, MaterialPageRoute(
-                      //   builder: (_) => CommentsScreen(postId: _postId),
-                      // ));
-                      // ?? ??? ????????? ??????:
-                      final comments = await fetchComments();
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content:
-                              Text('??? ?????????: ${comments.length}'),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.mode_comment_outlined),
-                  ),
-                ],
-              ),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: _onToggle,
+                  icon: AnimatedScale(
+                    scale: _liked ? 1.2 : 1.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Icon(
+                      _liked ? Icons.favorite : Icons.favorite_border,
+                    ),
+                  ),
+                  color: _liked ? theme.colorScheme.primary : theme.iconTheme.color,
+                ),
+                Text('$_count', style: theme.textTheme.bodyMedium),
+                const Spacer(),
+                IconButton(
+                  onPressed: () {
+                    // ???? ???? ????????? (??????? ?????? ??? ??? ????)
+                  },
+                  icon: const Icon(Icons.comment_outlined),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// ???? ???? ????? ???????
+class _HeartsPainter extends CustomPainter {
+  _HeartsPainter({required this.progress, required this.rnd});
+
+  final double progress;
+  final Random rnd;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress == 0) return;
+    final count = 10;
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < count; i++) {
+      final angle = (i / count) * 2 * pi;
+      final radius = (size.shortestSide * 0.12) * Curves.easeOut.transform(progress);
+      final dx = size.width / 2 + radius * cos(angle + rnd.nextDouble() * 0.5);
+      final dy = size.height / 2 + radius * sin(angle + rnd.nextDouble() * 0.5);
+      paint.color = Colors.white.withOpacity(0.9 - progress * 0.9);
+      _drawHeart(canvas, Offset(dx, dy), 6 * (1 - progress), paint);
+    }
+  }
+
+  void _drawHeart(Canvas c, Offset center, double s, Paint p) {
+    final path = Path()
+      ..moveTo(center.dx, center.dy + s / 2)
+      ..cubicTo(
+        center.dx + s, center.dy + s * 1.2,
+        center.dx + s * 1.2, center.dy,
+        center.dx, center.dy - s / 3,
+      )
+      ..cubicTo(
+        center.dx - s * 1.2, center.dy,
+        center.dx - s, center.dy + s * 1.2,
+        center.dx, center.dy + s / 2,
+      );
+    c.drawPath(path, p);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeartsPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

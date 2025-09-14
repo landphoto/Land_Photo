@@ -1,37 +1,20 @@
-import 'supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class CommentsService {
-  final _s = S.c;
+final _s = Supabase.instance.client;
 
-  Future<List<Map<String, dynamic>>> list(int postId) async {
-    final res = await _s
+/// ??? ????????? ?? ?????? ????????
+class CommentService {
+  const CommentService._();
+  static const CommentService I = CommentService._();
+
+  Future<List<Map<String, dynamic>>> fetchForPost(String postId) async {
+    final rows = await _s
         .from('comments')
-        .select('id, content, created_at, user_id, profiles(username, avatar_url)')
-        .eq('post_id', postId)
-        .order('created_at', ascending: true);
-    return List<Map<String, dynamic>>.from(res);
-  }
-
-  Future<void> add(int postId, String content) async {
-    final uid = _s.auth.currentUser!.id;
-    await _s.from('comments').insert({
-      'post_id': postId,
-      'user_id': uid,
-      'content': content,
-    });
-  }
-
-  RealtimeChannel subscribe(int postId, void Function() onChange) {
-    final ch = _s
-        .channel('comments_post_$postId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'comments',
-          filter: PostgresChangeFilter('post_id=eq.$postId'),
-          callback: (_) => onChange(),
+        .select(
+          'id, content, user_id, created_at, profiles(username, avatar_url)',
         )
-        .subscribe();
-    return ch;
+        .eq('post_id', postId)
+        .order('created_at');
+    return List<Map<String, dynamic>>.from(rows);
   }
 }
