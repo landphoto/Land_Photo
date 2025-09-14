@@ -1,52 +1,58 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LikeService {
-  final supabase = Supabase.instance.client;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// ????? ???? ????
-  Future<void> addLike(String postId) async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    await supabase.from('likes').insert({
-      'post_id': postId,
-      'user_id': user.id,
-    });
-  }
-
-  /// ??? ??????
-  Future<void> removeLike(String postId) async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    await supabase
+  /// ????? ??? ???????? ??????
+  Future<int> countLikes(String postId) async {
+    final res = await _supabase
         .from('likes')
-        .delete()
-        .match({'post_id': postId, 'user_id': user.id});
+        .select('id', count: CountOption.exact)
+        .eq('post_id', postId);
+
+    // ?? ??? count ??? ?????? ?? ??????? ???? null
+    return res.count ?? 0;
   }
 
-  /// ?????? ??? ???????? ?????? ???? ????
-  Future<bool> hasLiked(String postId) async {
-    final user = supabase.auth.currentUser;
+  /// ?? ???????? ?????? ???? ???? ???? ????????
+  Future<bool> likedByMe(String postId) async {
+    final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    final res = await supabase
+    final res = await _supabase
         .from('likes')
-        .select()
+        .select('id')
         .eq('post_id', postId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .limit(1);
 
     return res.isNotEmpty;
   }
 
-  /// ??? ??? ???????? ??????
-  Future<int> getLikesCount(String postId) async {
-    final res = await supabase
+  /// ??? ???? ?????? (??? ????? ?????? ??? ??? ????? ??????)
+  Future<void> toggleLike(String postId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    final exists = await _supabase
         .from('likes')
         .select('id')
         .eq('post_id', postId)
-        .withCount(CountOption.exact); // ? ??? ??????
+        .eq('user_id', user.id)
+        .limit(1);
 
-    return res.count ?? 0;
+    if (exists.isNotEmpty) {
+      // ????? ??????
+      await _supabase
+          .from('likes')
+          .delete()
+          .match({'post_id': postId, 'user_id': user.id});
+    } else {
+      // ????? ????
+      await _supabase.from('likes').insert({
+        'post_id': postId,
+        'user_id': user.id,
+      });
+    }
   }
 }
