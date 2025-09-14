@@ -1,48 +1,39 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../secrets.dart';
-import 'supabase_service.dart';
+import 'profile_service.dart';
 
 class AuthService {
-  final _s = SupaService.I.client;
+  final _s = Supabase.instance.client;
 
-  Session? get session => _s.auth.currentSession;
-  User? get user => _s.auth.currentUser;
-
-  Future<AuthResponse> signUp({
+  Future<void> signUpWithEmail({
     required String email,
     required String password,
-    required String username,
   }) async {
-    final res = await _s.auth.signUp(
-      email: email,
-      password: password,
-      data: {'username': username},
-    );
-    // ????/???? ???????
-    final uid = res.user?.id;
-    if (uid != null) {
-      await _s.from('profiles').upsert({
-        'id': uid,
-        'username': username,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+    final res = await _s.auth.signUp(email: email, password: password);
+
+    // === ????? ???? ????? ===
+    final _p = ProfileService();
+    await _p.ensureRow();
+
+    if (res.session == null && _s.auth.currentUser == null) {
+      // ?????? ????? ????? ???? ? ?? ??? ????? ???
     }
-    return res;
   }
 
-  Future<AuthResponse> signIn({
+  Future<void> signInWithEmail({
     required String email,
     required String password,
-  }) =>
-      _s.auth.signInWithPassword(email: email, password: password);
+  }) async {
+    await _s.auth.signInWithPassword(email: email, password: password);
 
-  Future<void> signOut() => _s.auth.signOut();
-
-  Future<Map<String, dynamic>?> getProfile() async {
-    final uid = user?.id;
-    if (uid == null) return null;
-    final data =
-        await _s.from('profiles').select().eq('id', uid).maybeSingle();
-    return data;
+    // === ????? ???? ????? ===
+    final _p = ProfileService();
+    await _p.ensureRow();
   }
+
+  Future<void> signOut() async {
+    await _s.auth.signOut();
+  }
+
+  String? get currentUserId => _s.auth.currentUser?.id;
+  String? get currentEmail  => _s.auth.currentUser?.email;
 }

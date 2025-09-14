@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
-import '../screens/comments_screen.dart';
-import '../screens/image_viewer.dart';
+import 'package:like_button/like_button.dart';
 import '../services/like_service.dart';
 
 class PostCard extends StatefulWidget {
-  final Map<String, dynamic> post; // ???????: {id, image_url, user_id, created_at}
+  final Map<String, dynamic> post;
   const PostCard({super.key, required this.post});
 
   @override
@@ -13,71 +11,79 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   final _likes = LikeService();
-  int _count = 0;
   bool _liked = false;
+  int  _count = 0;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _init();
   }
 
-  Future<void> _load() async {
+  Future<void> _init() async {
     final id = widget.post['id'].toString();
-    final c = await _likes.countLikes(id);
-    final m = await _likes.likedByMe(id);
-    if (mounted) setState(() { _count = c; _liked = m; });
-  }
-
-  Future<void> _toggle() async {
-    await _likes.toggleLike(widget.post['id'].toString());
-    _load();
+    final c  = await _likes.countLikes(id);
+    final m  = await _likes.likedByMe(id);
+    if (!mounted) return;
+    setState(() { _count = c; _liked = m; });
   }
 
   @override
   Widget build(BuildContext context) {
-    final url = widget.post['image_url'] as String;
-    final tag = 'img_${widget.post['id']}';
-    return Card(
-      clipBehavior: Clip.hardEdge,
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => ImageViewer(url: url, heroTag: tag))),
-            child: Hero(
-              tag: tag,
-              child: AspectRatio(
-                aspectRatio: 4/5,
-                child: Image.network(url, fit: BoxFit.cover),
+    final postId = widget.post['id'].toString();
+
+    return Column(
+      children: [
+        // ... ?????/???
+        Row(
+          children: [
+            LikeButton(
+              isLiked: _liked,
+              likeCount: _count,
+              size: 30,
+              bubblesColor: BubblesColor(
+                dotPrimaryColor: Theme.of(context).colorScheme.primary,
+                dotSecondaryColor: Theme.of(context).colorScheme.secondary,
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: _toggle,
-                  icon: Icon(_liked ? Icons.favorite : Icons.favorite_border, color: _liked ? Colors.red : null),
-                ),
-                Text('$_count'),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => CommentsScreen(postId: widget.post['id'].toString())),
+              circleColor: CircleColor(
+                start: Theme.of(context).colorScheme.primary,
+                end: Theme.of(context).colorScheme.secondary,
+              ),
+              countBuilder: (count, isLiked, text) {
+                return Text(
+                  text,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isLiked
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  icon: const Icon(Icons.comment),
-                ),
-              ],
+                );
+              },
+              onTap: (isLiked) async {
+                final next = !isLiked;
+
+                // ????? ?????
+                setState(() {
+                  _liked = next;
+                  _count += next ? 1 : -1;
+                });
+
+                await _likes.toggleLike(postId);
+
+                // ???? ???????? ?? ??????? ?????
+                final fresh = await _likes.countLikes(postId);
+                if (!mounted) return next;
+                setState(() => _count = fresh);
+
+                return next;
+              },
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 8),
+            // ?? ????????? ???? ????
+          ],
+        ),
+      ],
     );
   }
 }
