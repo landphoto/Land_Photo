@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../main.dart' show RouteNames;
 import '../services/like_service.dart';
 
 class PostCard extends StatefulWidget {
+  const PostCard({super.key, required this.post});
   final Map<String, dynamic> post;
-
-  const PostCard({Key? key, required this.post}) : super(key: key);
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -13,9 +12,8 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   final _likes = LikeService();
-
-  int likeCount = 0;
-  bool likedByMe = false;
+  int _count = 0;
+  bool _likedByMe = false;
 
   @override
   void initState() {
@@ -27,87 +25,75 @@ class _PostCardState extends State<PostCard> {
     final postId = widget.post['id'].toString();
     final c = await _likes.countLikes(postId);
     final m = await _likes.likedByMe(postId);
-
+    if (!mounted) return;
     setState(() {
-      likeCount = c;
-      likedByMe = m;
+      _count = c;
+      _likedByMe = m;
     });
   }
 
-  Future<void> _toggleLike() async {
+  Future<void> _onHeartTap() async {
     final postId = widget.post['id'].toString();
     await _likes.toggleLike(postId);
-    await _loadLikes(); // ???? ??? ???????
+    final c = await _likes.countLikes(postId);
+    final m = await _likes.likedByMe(postId);
+    if (!mounted) return;
+    setState(() {
+      _count = c;
+      _likedByMe = m;
+    });
+  }
+
+  void _openComments() {
+    final postId = widget.post['id'].toString();
+    Navigator.pushNamed(
+      context,
+      RouteNames.comments,
+      arguments: {'postId': postId},
+    );
+  }
+
+  void _openImage() {
+    final url = widget.post['image_url'] as String?;
+    if (url == null || url.isEmpty) return;
+    Navigator.pushNamed(
+      context,
+      RouteNames.image,
+      arguments: {'url': url},
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.post['title']?.toString() ?? '';
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// ????? ????????
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.blueGrey[100],
-                  child: Text(
-                    widget.post['user_id'] != null
-                        ? widget.post['user_id'][0].toUpperCase()
-                        : "?",
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: InkWell(
+        onTap: _openImage,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (title.isNotEmpty)
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: _onHeartTap,
+                    icon: Icon(_likedByMe ? Icons.favorite : Icons.favorite_border),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  "User: ${widget.post['user_id'] ?? 'Unknown'}",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                  Text('$_count'),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _openComments,
+                    child: const Text('Comments'),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            /// ????? ??????
-            Text(
-              widget.post['content'] ?? '',
-              style: const TextStyle(fontSize: 15),
-            ),
-
-            const SizedBox(height: 12),
-
-            /// ????? ?????? ????????
-            Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    likedByMe ? Icons.favorite : Icons.favorite_border,
-                    color: likedByMe ? Colors.red : Colors.grey,
-                  ),
-                  onPressed: _toggleLike,
-                ),
-                Text(
-                  "$likeCount Likes",
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(width: 20),
-                IconButton(
-                  icon: const Icon(Icons.comment, color: Colors.grey),
-                  onPressed: () {
-                    // TODO: ??? ???? ???? ???? ?????????
-                  },
-                ),
-                const Text("Comments"),
-              ],
-            ),
-          ],
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );

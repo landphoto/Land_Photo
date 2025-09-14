@@ -2,9 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'secrets.dart'; // <-- ??? ????: ???? supabaseUrl & supabaseAnonKey
-import 'theme.dart';
-import 'bootstrap/ensure_profile_row.dart';
+// ?????? ??????? ?? ??? secrets.dart
+import 'secrets.dart';
 
 // ???????
 import 'screens/splash_screen.dart';
@@ -16,17 +15,25 @@ import 'screens/profile_screen.dart';
 import 'screens/comments_screen.dart';
 import 'screens/image_viewer.dart';
 
-final navigatorKey = GlobalKey<NavigatorState>();
+/// ????? ???????? ???????? ? ?? ????? ????? ??? ???? ?????.
+class RouteNames {
+  static const splash   = '/splash';
+  static const login    = '/login';
+  static const signup   = '/signup';
+  static const feed     = '/feed';
+  static const upload   = '/upload';
+  static const profile  = '/profile';
+  static const comments = '/comments'; // ????? postId
+  static const image    = '/image';    // ????? url
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ????? Supabase ?? ?????? secrets.dart
+  // ????? Supabase
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
-    // optional: persistSession: true,
-    // optional: authFlowType: AuthFlowType.pkce,
   );
 
   runApp(const LandPhotoApp());
@@ -40,29 +47,42 @@ class LandPhotoApp extends StatelessWidget {
     return MaterialApp(
       title: 'Land Photo',
       debugShowCheckedModeBanner: false,
-      navigatorKey: navigatorKey,
-      theme: buildTheme(), // ?? theme.dart
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        colorSchemeSeed: const Color(0xFF54DFC9),
+        useMaterial3: true,
+      ),
+      initialRoute: RouteNames.splash,
 
-      // ???? SplashScreen ?? ??????? ??? ???? ???? ????? ???????? ????
-      initialRoute: SplashScreen.routeName,
-
-      // routes ????? ???????? ? ?? ?????? '/home' ??? ?? ???? ????? ??????
+      // routes ???? ?? ????? arguments
       routes: {
-        SplashScreen.routeName: (_) => const SplashScreen(),
-        LoginScreen.routeName: (_) => const LoginScreen(),
-        SignupScreen.routeName: (_) => const SignupScreen(),
-        FeedScreen.routeName: (_) => const FeedScreen(),
-        UploadScreen.routeName: (_) => const UploadScreen(),
-        ProfileScreen.routeName: (_) => const ProfileScreen(),
-        CommentsScreen.routeName: (_) => const CommentsScreen(),
-        ImageViewer.routeName: (_) => const ImageViewer(),
+        RouteNames.splash:  (_) => const SplashScreen(),
+        RouteNames.login:   (_) => const LoginScreen(),
+        RouteNames.signup:  (_) => const SignupScreen(),
+        RouteNames.feed:    (_) => const FeedScreen(),
+        RouteNames.upload:  (_) => const UploadScreen(),
+        RouteNames.profile: (_) => const ProfileScreen(),
       },
 
-      // ?? ??? ??????? Route ?? ?????? ????? ??? Splash
-      onUnknownRoute: (_) => MaterialPageRoute(
-        builder: (_) => const SplashScreen(),
-        settings: const RouteSettings(name: SplashScreen.routeName),
-      ),
+      // ??????? ???? ????? arguments (comments, image)
+      onGenerateRoute: (settings) {
+        if (settings.name == RouteNames.comments) {
+          final args = (settings.arguments ?? {}) as Map;
+          final postId = args['postId'];
+          return MaterialPageRoute(
+            builder: (_) => CommentsScreen(postId: postId),
+          );
+        }
+        if (settings.name == RouteNames.image) {
+          final args = (settings.arguments ?? {}) as Map;
+          final url = args['url'] as String;
+          return MaterialPageRoute(
+            builder: (_) => ImageViewer(url: url),
+          );
+        }
+        // fallback
+        return MaterialPageRoute(builder: (_) => const SplashScreen());
+      },
     );
   }
 }
