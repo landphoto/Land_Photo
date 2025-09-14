@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/comments_service.dart';
 
 class CommentsScreen extends StatefulWidget {
-  final String postId; // مرر postId من بطاقة المنشور
+  final String postId;
   const CommentsScreen({super.key, required this.postId});
 
   @override
@@ -10,139 +10,51 @@ class CommentsScreen extends StatefulWidget {
 }
 
 class _CommentsScreenState extends State<CommentsScreen> {
-  final _s = Supabase.instance.client;
-  final _ctrl = TextEditingController();
-  bool _loading = true;
-  List<Map<String, dynamic>> _rows = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final postId = widget.postId;
-
-    // === هذا هو الاستعلام الذي طلبته بالضبط ===
-    final rows = await _s
-        .from('comments')
-        .select('id, content, user_id, created_at, profiles(username, avatar_url)')
-        .eq('post_id', postId)
-        .order('created_at');
-
-    setState(() {
-      _rows = List<Map<String, dynamic>>.from(rows);
-      _loading = false;
-    });
-  }
-
-  Future<void> _send() async {
-    final text = _ctrl.text.trim();
-    if (text.isEmpty) return;
-
-    await _s.from('comments').insert({
-      'post_id': widget.postId,
-      'content': text,
-    });
-
-    _ctrl.clear();
-    await _load(); // حدّث القائمة
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final _text = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('التعليقات')),
+      appBar: AppBar(title: const Text('Comments')),
       body: Column(
         children: [
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _rows.isEmpty
-                    ? const Center(child: Text('لا توجد تعليقات بعد'))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemCount: _rows.length,
-                        itemBuilder: (context, i) {
-                          final r = _rows[i];
-                          final prof = r['profiles'] as Map<String, dynamic>?;
-                          final name = (prof?['username'] ?? 'مستخدم') as String;
-                          final avatar = prof?['avatar_url'] as String?;
-                          final content = (r['content'] ?? '') as String;
-
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleAvatar(
-                                radius: 18,
-                                backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                                child: avatar == null ? const Icon(Icons.person, size: 18) : null,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    color: Theme.of(context).colorScheme.surface.withOpacity(.6),
-                                    border: Border.all(
-                                      color: Theme.of(context).colorScheme.outlineVariant,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(content),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _ctrl,
-                      decoration: const InputDecoration(
-                        hintText: 'اكتب تعليقك...',
-                        border: OutlineInputBorder(),
-                      ),
-                      onSubmitted: (_) => _send(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _send,
-                    child: const Icon(Icons.send),
-                  )
-                ],
-              ),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: CommentsService.I.fetch(widget.postId),
+              builder: (c, s) {
+                if (!s.hasData) return const Center(child: CircularProgressIndicator());
+                final items = s.data!;
+                return ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (_, i) {
+                    final it = items[i];
+                    return ListTile(
+                      title: Text(it['content'] ?? ''),
+                      subtitle: Text(it['profiles']?['username'] ?? it['user_id'] ?? ''),
+                    );
+                  },
+                );
+              },
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(child: TextField(controller: _text, decoration: const InputDecoration(hintText: 'Write a comment...'))),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: () async {
+                    final t = _text.text.trim();
+                    if (t.isEmpty) return;
+                    await CommentsService.I.add(widget.postId, t);
+                    if (!mounted) return;
+                    setState(() => _text.clear());
+                  },
+                )
+              ],
+            ),
+          )
         ],
       ),
     );

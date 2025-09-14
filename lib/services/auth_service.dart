@@ -1,26 +1,29 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'profile_service.dart';
 
 class AuthService {
-  final _s = Supabase.instance.client;
+  AuthService._();
+  static final I = AuthService._();
+  final _c = Supabase.instance.client;
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
-    await _s.auth.signInWithPassword(email: email, password: password);
+  Future<String?> signIn(String email, String password) async {
+    try {
+      await _c.auth.signInWithPassword(email: email, password: password);
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return e.toString();
+    }
   }
 
-  Future<void> signUp({
-    required String email,
-    required String password,
-  }) async {
-    await _s.auth.signUp(email: email, password: password);
-    // ???? ???? ??? ???????? ?? profiles
-    await ProfileService().ensureRow();
-  }
-
-  Future<void> signOut() async {
-    await _s.auth.signOut();
+  Future<String?> signUp(String email, String password) async {
+    try {
+      await _c.auth.signUp(email: email, password: password);
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return e.toString();
+    }
   }
 }

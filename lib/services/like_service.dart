@@ -1,43 +1,44 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LikeService {
-  final _s = Supabase.instance.client;
+  LikeService._();
+  static final I = LikeService._();
+  final _c = Supabase.instance.client;
 
-  Future<int> countLikes(String postId) async {
-    final rows = await _s
-        .from('likes')
-        .select('id')
-        .eq('post_id', postId);
-    // ???? ????? ?????? ????? ????? count/head/FetchOptions
-    return (rows as List).length;
-  }
+  Future<void> toggleLike(String postId) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
 
-  Future<bool> likedByMe(String postId) async {
-    final userId = _s.auth.currentUser!.id;
-    final rows = await _s
+    final exists = await _c
         .from('likes')
         .select('id')
         .eq('post_id', postId)
-        .eq('user_id', userId)
-        .limit(1);
-    return (rows as List).isNotEmpty;
+        .eq('user_id', uid)
+        .maybeSingle();
+
+    if (exists != null) {
+      await _c.from('likes').delete().eq('id', exists['id']);
+    } else {
+      await _c.from('likes').insert({'post_id': postId, 'user_id': uid});
+    }
   }
 
-  Future<void> toggleLike(String postId) async {
-    final userId = _s.auth.currentUser!.id;
-    final isLiked = await likedByMe(postId);
+  Future<int> countLikes(String postId) async {
+    // ????? ????? ??????? supabase ?????? ????
+    final rows = await _c.from('likes').select('id').eq('post_id', postId);
+    return (rows as List).length;
+    // ???? (?? ??? ???????): .select('id', count: CountOption.exact)
+  }
 
-    if (isLiked) {
-      await _s.from('likes').delete().match({
-        'post_id': postId,
-        'user_id': userId,
-      });
-    } else {
-      await _s.from('likes').insert({
-        'post_id': postId,
-        'user_id': userId,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-    }
+  Future<bool> likedByMe(String postId) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return false;
+    final row = await _c
+        .from('likes')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('user_id', uid)
+        .maybeSingle();
+    return row != null;
   }
 }

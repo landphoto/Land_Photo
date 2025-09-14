@@ -9,19 +9,17 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _p = ProfileService(); // بدلاً من ProfileService.I
-
   @override
   void initState() {
     super.initState();
-    // لو كان عندك ensureRow خليها هنا
-    _p.ensureRow();
+    ProfileService.I.ensureRow();
   }
 
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(child: Text('Profile')),
+      appBar: AppBar(title: Text('Profile')),
+      body: Center(child: Text('Profile page')),
     );
   }
 }

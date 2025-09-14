@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -9,25 +11,27 @@ class UploadScreen extends StatefulWidget {
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  final _storage = StorageService(); // بدلاً من StorageService.I
   bool _loading = false;
+  String? _url;
 
-  Future<void> _uploadDummy() async {
-    if (_loading) return;
+  Future<void> _pickAndUpload() async {
+    final picker = ImagePicker();
+    final x = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+    if (x == null) return;
+
     setState(() => _loading = true);
-    try {
-      // مثال بسيط (بدّل بالمحتوى الحقيقي عندك)
-      // await _storage.uploadToBucket(bucket: 'photos', path: 'demo.txt', bytes: Uint8List.fromList([1,2,3]), contentType:'text/plain');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Upload ready (stub).')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    final bytes = await x.readAsBytes();
+    final url = await StorageService.I.uploadToBucket(
+      bucket: 'public', // غيّرها إن عندك bucket مختلف
+      path: x.name,
+      bytes: Uint8List.fromList(bytes),
+      contentType: 'image/${x.name.split('.').last}',
+    );
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _url = url;
+    });
   }
 
   @override
@@ -35,9 +39,19 @@ class _UploadScreenState extends State<UploadScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Upload')),
       body: Center(
-        child: ElevatedButton(
-          onPressed: _loading ? null : _uploadDummy,
-          child: Text(_loading ? 'Uploading…' : 'Upload demo'),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FilledButton(
+                onPressed: _loading ? null : _pickAndUpload,
+                child: _loading ? const CircularProgressIndicator() : const Text('Pick & Upload'),
+              ),
+              const SizedBox(height: 12),
+              if (_url != null) Text('Uploaded: $_url'),
+            ],
+          ),
         ),
       ),
     );

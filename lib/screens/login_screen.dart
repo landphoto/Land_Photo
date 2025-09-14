@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../main.dart' show RouteNames;
+import '../services/auth_service.dart';
+import '../main.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,41 +13,19 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
+  String? _error;
 
   Future<void> _signIn() async {
-    if (_loading) return;
     setState(() => _loading = true);
-    try {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
-
-      if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        RouteNames.feed,
-        (route) => false,
-      );
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    final res = await AuthService.I.signIn(_email.text.trim(), _password.text);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error = res;
+    });
+    if (res == null) {
+      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.feed, (_) => false);
     }
-  }
-
-  void _goToSignup() {
-    Navigator.pushNamed(context, RouteNames.signup);
   }
 
   @override
@@ -55,34 +33,23 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Sign in')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
+            TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
             const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
+            TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+            const SizedBox(height: 16),
+            if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: _loading ? null : _signIn,
+              child: _loading ? const CircularProgressIndicator() : const Text('Sign in'),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _signIn,
-                child: Text(_loading ? 'Please wait?' : 'Sign in'),
-              ),
-            ),
-            const SizedBox(height: 12),
             TextButton(
-              onPressed: _goToSignup,
+              onPressed: () => Navigator.of(context).pushNamed(AppRoutes.signup),
               child: const Text('Create account'),
-            ),
+            )
           ],
         ),
       ),
