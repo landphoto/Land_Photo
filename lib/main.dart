@@ -50,42 +50,43 @@ class LandPhotoApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
 
       // ?????? Splash ?? home ????? ?? initialRoute ?????? ????? routeName
-      home: const SplashScreen(),
+      initialRoute: SplashScreen.routeName,
+routes: {
+  SplashScreen.routeName: (_) => const SplashScreen(),
+  AppRoutes.login:   (_) => const LoginScreen(),
+  AppRoutes.signup:  (_) => const SignupScreen(),
+  AppRoutes.feed:    (_) => const FeedScreen(),
+  AppRoutes.upload:  (_) => const UploadScreen(),
+  AppRoutes.profile: (_) => const ProfileScreen(),
+},
+onGenerateRoute: (settings) {
+  if (settings.name == AppRoutes.comments) {
+    final args = settings.arguments;
+    if (args is Map && args['postId'] is String) {
+      return MaterialPageRoute(
+        builder: (_) => CommentsScreen(postId: args['postId'] as String),
+        settings: settings,
+      );
+    }
+    return _badArgs(settings, "Expected {'postId': String}");
+  }
 
-      // ???? ???? ??????????
-      routes: {
-        AppRoutes.login: (_) => const LoginScreen(),
-        AppRoutes.signup: (_) => const SignupScreen(),
-        AppRoutes.feed: (_) => const FeedScreen(),
-        AppRoutes.upload: (_) => const UploadScreen(),
-        AppRoutes.profile: (_) => const ProfileScreen(),
-      },
+  if (settings.name == AppRoutes.image) {
+    final args = settings.arguments;
+    if (args is Map && args['url'] is String && args['heroTag'] is String) {
+      return MaterialPageRoute(
+        builder: (_) => ImageViewer(
+          url: args['url'] as String,
+          heroTag: args['heroTag'] as String,
+        ),
+        settings: settings,
+      );
+    }
+    return _badArgs(settings, "Expected {'url': String, 'heroTag': String}");
+  }
 
-      // ???? ????? ??????????
-      onGenerateRoute: (settings) {
-        if (settings.name == AppRoutes.comments) {
-          final args = settings.arguments;
-          if (args is Map && args['postId'] is String) {
-            return MaterialPageRoute(
-              builder: (_) => CommentsScreen(postId: args['postId'] as String),
-              settings: settings,
-            );
-          }
-          return _badArgs(settings, 'Expected { "postId": String }');
-        }
-
-        if (settings.name == AppRoutes.image) {
-          final args = settings.arguments;
-          if (args is Map && args['url'] is String) {
-            final url = args['url'] as String;
-            final heroTag = (args['heroTag'] ?? '') as String; // ??? ????????? ????? heroTag
-            return MaterialPageRoute(
-              builder: (_) => ImageViewer(url: url, heroTag: heroTag),
-              settings: settings,
-            );
-          }
-          return _badArgs(settings, 'Expected { "url": String, "heroTag"?: String }');
-        }
+  return null; // ??? ????
+}
 
         // ??? ?? route ??? ?????
         return MaterialPageRoute(
