@@ -2,23 +2,46 @@ import 'package:flutter/material.dart';
 
 class ImageViewer extends StatelessWidget {
   final String url;
-  final String heroTag;
-  const ImageViewer({super.key, required this.url, required this.heroTag});
+  final Object heroTag;
+
+  const ImageViewer({
+    Key? key,
+    required this.url,
+    required this.heroTag,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () => Navigator.pop(context),
-        child: Center(
-          child: Hero(
-            tag: heroTag,
+      body: Stack(
+        children: [
+          Positioned.fill(
             child: InteractiveViewer(
-              child: Image.network(url),
+              minScale: 0.5,
+              maxScale: 5,
+              child: Center(
+                child: Hero(
+                  tag: heroTag,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+                tooltip: '?????',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
