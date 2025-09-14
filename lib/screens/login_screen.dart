@@ -25,9 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    // ???? ????? ?????? ????? ???????
     if (_loading) return;
-
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) return;
 
@@ -38,14 +36,12 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _pass.text,
       );
 
-      // ????
       if (!mounted) return;
       if (res.session != null) {
-        // ????: ??? ??? Home ???? ??????
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('??? ????? ??????')),
+          const SnackBar(content: Text('Sign in failed')),
         );
       }
     } on AuthException catch (e) {
@@ -56,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('??? ??? ?????: $e')),
+        SnackBar(content: Text('Unexpected error: $e')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -70,7 +66,6 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(title: const Text('Sign in')),
       body: SafeArea(
         child: GestureDetector(
-          // ?? ?????? ???????? ? ???? ??? ?????
           onTap: () => FocusScope.of(context).unfocus(),
           behavior: HitTestBehavior.translucent,
           child: Center(
@@ -103,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _loading ? null : _signIn, // ???!
+                          onPressed: _loading ? null : _signIn,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: cs.secondary,
                             foregroundColor: cs.onSecondary,
