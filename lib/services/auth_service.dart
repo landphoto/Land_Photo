@@ -1,8 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../secrets.dart';
 import 'supabase_service.dart';
 
 class AuthService {
-  final _s = S.c;
+  final _s = SupaService.I.client;
+
+  Session? get session => _s.auth.currentSession;
+  User? get user => _s.auth.currentUser;
 
   Future<AuthResponse> signUp({
     required String email,
@@ -13,26 +17,32 @@ class AuthService {
       email: email,
       password: password,
       data: {'username': username},
-      emailRedirectTo: _emailRedirect,
     );
+    // ????/???? ???????
     final uid = res.user?.id;
     if (uid != null) {
       await _s.from('profiles').upsert({
         'id': uid,
         'username': username,
+        'created_at': DateTime.now().toIso8601String(),
       });
     }
     return res;
   }
 
-  Future<AuthResponse> signIn(String email, String password) {
-    return _s.auth.signInWithPassword(email: email, password: password);
-  }
+  Future<AuthResponse> signIn({
+    required String email,
+    required String password,
+  }) =>
+      _s.auth.signInWithPassword(email: email, password: password);
 
   Future<void> signOut() => _s.auth.signOut();
 
-  String get _emailRedirect =>
-      _s.restUrl.replace(path: '/auth/v1/callback').toString();
-
-  User? get currentUser => _s.auth.currentUser;
+  Future<Map<String, dynamic>?> getProfile() async {
+    final uid = user?.id;
+    if (uid == null) return null;
+    final data =
+        await _s.from('profiles').select().eq('id', uid).maybeSingle();
+    return data;
+  }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
-import '../ui/glass.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
+import 'feed_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,34 +10,34 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _auth = AuthService();
-  final _name = TextEditingController();
   final _email = TextEditingController();
   final _pass = TextEditingController();
-  bool _loginMode = true, _loading = false;
-  String? _error;
-
-  void _toggleMode() => setState(() => _loginMode = !_loginMode);
+  final _username = TextEditingController();
+  bool _isSignup = false;
+  bool _loading = false;
+  final _auth = AuthService();
 
   Future<void> _submit() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() => _loading = true);
     try {
-      if (_loginMode) {
-        await _auth.signIn(_email.text.trim(), _pass.text.trim());
-      } else {
+      if (_isSignup) {
         await _auth.signUp(
           email: _email.text.trim(),
-          password: _pass.text.trim(),
-          username: _name.text.trim().isEmpty ? 'مستخدم' : _name.text.trim(),
+          password: _pass.text,
+          username: _username.text.trim().isEmpty ? 'مستخدم' : _username.text.trim(),
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم الإرسال، أكّد بريدك ثم سجّل دخول')),
-          );
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم إنشاء الحساب، راجع بريدك لتأكيد الإيميل')),
+        );
+      } else {
+        await _auth.signIn(email: _email.text.trim(), password: _pass.text);
+        if (!mounted) return;
+        Navigator.of(context)
+            .pushReplacement(MaterialPageRoute(builder: (_) => const FeedScreen()));
       }
-    } catch (_) {
-      _error = 'حدث خطأ غير متوقع';
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -45,66 +45,70 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
+    final headline = GoogleFonts.poppins(
+      fontSize: 36, fontWeight: FontWeight.w700, color: Colors.white,
+    );
     return Scaffold(
+      backgroundColor: const Color(0xFF0E0F12),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Text('LandPhoto', style: t.displaySmall?.copyWith(
-                  color: AppColors.mint, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 28),
-                Glass(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      if (!_loginMode) ...[
-                        TextField(controller: _name,
-                          decoration: const InputDecoration(
-                            labelText: 'اسم المستخدم', prefixIcon: Icon(Icons.person))),
-                        const SizedBox(height: 12),
-                      ],
-                      TextField(controller: _email, keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.mail))),
-                      const SizedBox(height: 12),
-                      TextField(controller: _pass, obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'كلمة المرور', prefixIcon: Icon(Icons.lock))),
-                      const SizedBox(height: 16),
-                      if (_error != null)
-                        Padding(padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(_error!, style: const TextStyle(color: AppColors.danger))),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: _loading ? null : _submit,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.mint, foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            child: _loading
-                                ? const SizedBox(width:20,height:20,child: CircularProgressIndicator(strokeWidth:2))
-                                : Text(_loginMode ? 'تسجيل الدخول' : 'إنشاء حساب'),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(onPressed: _toggleMode,
-                        child: Text(_loginMode ? 'لا تملك حساب؟ إنشاء' : 'لديك حساب؟ تسجيل الدخول')),
-                    ],
-                  ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ListView(
+            children: [
+              const SizedBox(height: 40),
+              Text('LandPhoto', style: headline, textAlign: TextAlign.center),
+              const SizedBox(height: 30),
+              if (_isSignup)
+                TextField(
+                  controller: _username,
+                  decoration: _decor('اسم المستخدم'),
                 ),
-              ],
-            ),
+              TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: _decor('البريد الإلكتروني'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _pass,
+                obscureText: true,
+                decoration: _decor('كلمة المرور'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _loading ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white12,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(_isSignup ? 'إنشاء حساب' : 'تسجيل الدخول'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: _loading ? null : () => setState(() => _isSignup = !_isSignup),
+                child: Text(_isSignup ? 'عندك حساب؟ تسجيل الدخول' : 'ما عندك حساب؟ إنشاء حساب'),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  InputDecoration _decor(String label) => InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.white10,
+        labelStyle: const TextStyle(color: Colors.white70),
+        enabledBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.white24),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.white54),
+          borderRadius: BorderRadius.circular(14),
+        ),
+      );
 }

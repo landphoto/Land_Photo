@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
+import 'package:supabase/supabase.dart' show RealtimeChannel, PostgresChangeEvent;
 import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
-import 'upload_screen.dart';
 import 'profile_screen.dart';
+import 'upload_screen.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -12,98 +12,63 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-  final _s = S.c;
-  late Future<List<Map<String, dynamic>>> _future;
+  List<Map<String, dynamic>> _posts = [];
   RealtimeChannel? _ch;
-  final _sc = ScrollController();
-  bool _showUp = false;
-
-  Future<List<Map<String, dynamic>>> _fetch() async {
-    final res = await _s
-        .from('posts')
-        .select('id, image_url, caption, created_at, user_id, '
-            'profiles!inner(id, username, avatar_url)')
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(res);
-  }
 
   @override
   void initState() {
     super.initState();
-    _future = _fetch();
-    _ch = _s.channel('posts_rt')
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'posts',
-        callback: (_) => setState(() => _future = _fetch()),
-      )
-      ..subscribe();
-    _sc.addListener(() => setState(() => _showUp = _sc.offset > 400));
+    _load();
+    _listen();
+  }
+
+  Future<void> _load() async {
+    final rows = await SupaService.I.client
+        .from('posts')
+        .select('id, image_url, user_id, created_at')
+        .order('created_at', ascending: false);
+    setState(() => _posts = rows);
+  }
+
+  void _listen() {
+    _ch = SupaService.I.client
+        .channel('public:posts')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'posts',
+          callback: (_) => _load(),
+        )
+        .subscribe();
   }
 
   @override
-  void dispose() { _ch?.unsubscribe(); _sc.dispose(); super.dispose(); }
-
-  Future<void> _refresh() async => setState(() => _future = _fetch());
+  void dispose() {
+    _ch?.unsubscribe();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text('LandPhoto',
-            style: t.headlineSmall?.copyWith(color: AppColors.mint, fontWeight: FontWeight.w800)),
+        title: const Text('LandPhoto'),
         actions: [
-          IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
-              icon: const Icon(Icons.person_outline)),
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())), icon: const Icon(Icons.person)),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_showUp)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: FloatingActionButton.small(
-                heroTag: 'up',
-                onPressed: () => _sc.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut),
-                child: const Icon(Icons.keyboard_arrow_up),
-              ),
-            ),
-          FloatingActionButton.extended(
-            heroTag: 'add',
-            onPressed: () async {
-              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UploadScreen()));
-              _refresh();
-            },
-            label: const Text('رفع'),
-            icon: const Icon(Icons.add_a_photo),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const UploadScreen()));
+          if (res != null) _load();
+        },
+        child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snap.hasError) {
-              return Center(child: Text('خطأ في جلب البيانات'));
-            }
-            final data = snap.data ?? [];
-            if (data.isEmpty) return Center(child: Text('لا توجد منشورات بعد', style: t.titleMedium));
-            return ListView.separated(
-              controller: _sc,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 100),
-              itemCount: data.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 14),
-              itemBuilder: (context, i) => PostCard(post: data[i], onLiked: _refresh),
-            );
-          },
+        onRefresh: _load,
+        child: ListView.builder(
+          itemCount: _posts.length,
+          itemBuilder: (_, i) => PostCard(post: _posts[i]),
         ),
       ),
     );
