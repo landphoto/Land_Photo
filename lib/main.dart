@@ -97,7 +97,7 @@ class LandPhotoApp extends StatelessWidget {
       },
 
       // ??? ??????? (?? ???? buildTheme ?? theme.dart)
-      theme: buildTheme(),
+      theme: ThemeData.dark(),
     );
   }
 
