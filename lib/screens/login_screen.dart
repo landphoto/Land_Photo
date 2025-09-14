@@ -1,6 +1,6 @@
+// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import '../services/profile_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,38 +10,127 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _pass = TextEditingController();
-  final _auth = AuthService.I;
 
-  Future<void> _doSignIn() async {
-    await _auth.signIn(email: _email.text.trim(), password: _pass.text.trim());
-    await ProfileService.I.ensureRow();
-    if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
+  bool _loading = false;
+  final _supabase = Supabase.instance.client;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _pass.dispose();
+    super.dispose();
   }
 
-  Future<void> _doSignUp() async {
-    await _auth.signUp(email: _email.text.trim(), password: _pass.text.trim());
-    if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
+  Future<void> _signIn() async {
+    // ???? ????? ?????? ????? ???????
+    if (_loading) return;
+
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid) return;
+
+    setState(() => _loading = true);
+    try {
+      final res = await _supabase.auth.signInWithPassword(
+        email: _email.text.trim(),
+        password: _pass.text,
+      );
+
+      // ????
+      if (!mounted) return;
+      if (res.session != null) {
+        // ????: ??? ??? Home ???? ??????
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('??? ????? ??????')),
+        );
+      }
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('??? ??? ?????: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
-            const SizedBox(height: 10),
-            TextField(controller: _pass, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
-            const SizedBox(height: 20),
-            FilledButton(onPressed: _doSignIn, child: const Text('Sign in')),
-            TextButton(onPressed: _doSignUp, child: const Text('Create account')),
-          ],
+      appBar: AppBar(title: const Text('Sign in')),
+      body: SafeArea(
+        child: GestureDetector(
+          // ?? ?????? ???????? ? ???? ??? ?????
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(labelText: 'Email'),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _pass,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: 'Password'),
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _signIn, // ???!
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: cs.secondary,
+                            foregroundColor: cs.onSecondary,
+                            shape: const StadiumBorder(),
+                          ),
+                          child: _loading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Sign in'),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: _loading
+                            ? null
+                            : () => Navigator.of(context).pushNamed('/signup'),
+                        child: const Text('Create account'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
