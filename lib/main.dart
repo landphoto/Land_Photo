@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'secrets.dart';
+
+import 'secrets.dart'; // AppSecrets.supabaseUrl / AppSecrets.supabaseAnonKey
+import 'theme.dart';
 
 // Screens
 import 'screens/splash_screen.dart';
@@ -12,20 +14,29 @@ import 'screens/profile_screen.dart';
 import 'screens/comments_screen.dart';
 import 'screens/image_viewer.dart';
 
+/// ????? ?????? ????? ????? ????
 class AppRoutes {
-  static const String splash = '/';
-  static const String login = '/login';
-  static const String signup = '/signup';
-  static const String feed = '/feed';
-  static const String upload = '/upload';
-  static const String profile = '/profile';
-  static const String comments = '/comments';
-  static const String image = '/image';
+  static const splash = '/';
+  static const login = '/login';
+  static const signup = '/signup';
+  static const feed = '/feed';
+  static const upload = '/upload';
+  static const profile = '/profile';
+
+  // ???? ????? ??????????: ?????? onGenerateRoute ???
+  static const comments = '/comments'; // args: { "postId": String }
+  static const image = '/image';       // args: { "url": String, "heroTag": String }
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+
+  // ?? Supabase init ???????? AppSecrets
+  await Supabase.initialize(
+    url: AppSecrets.supabaseUrl,
+    anonKey: AppSecrets.supabaseAnonKey,
+  );
+
   runApp(const LandPhotoApp());
 }
 
@@ -37,66 +48,70 @@ class LandPhotoApp extends StatelessWidget {
     return MaterialApp(
       title: 'Land Photo',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF18C2A5)),
-        useMaterial3: true,
-      ),
-      initialRoute: AppRoutes.splash,
+
+      // ?????? Splash ?? home ????? ?? initialRoute ?????? ????? routeName
+      home: const SplashScreen(),
+
+      // ???? ???? ??????????
       routes: {
-        AppRoutes.splash: (_) => const SplashScreen(),
         AppRoutes.login: (_) => const LoginScreen(),
         AppRoutes.signup: (_) => const SignupScreen(),
         AppRoutes.feed: (_) => const FeedScreen(),
         AppRoutes.upload: (_) => const UploadScreen(),
         AppRoutes.profile: (_) => const ProfileScreen(),
       },
+
+      // ???? ????? ??????????
       onGenerateRoute: (settings) {
-        switch (settings.name) {
-          case AppRoutes.comments:
-            final args = settings.arguments;
-            if (args is String) {
-              return MaterialPageRoute(
-                builder: (_) => CommentsScreen(postId: args),
-                settings: settings,
-              );
-            }
-            return _badArgs('Expected a String postId for /comments');
-
-          case AppRoutes.image:
-            final args = settings.arguments;
-            if (args is Map) {
-              final url = args['url'] as String?;
-              final heroTag = args['heroTag'] as String?;
-              if (url == null || url.isEmpty) {
-                return _badArgs('Expected a non-empty "url" for /image');
-              }
-              return MaterialPageRoute(
-                builder: (_) => ImageViewer(url: url, heroTag: heroTag),
-                settings: settings,
-              );
-            }
-            return _badArgs('Expected {url:String, heroTag?:String} for /image');
-
-          default:
-            return null;
+        if (settings.name == AppRoutes.comments) {
+          final args = settings.arguments;
+          if (args is Map && args['postId'] is String) {
+            return MaterialPageRoute(
+              builder: (_) => CommentsScreen(postId: args['postId'] as String),
+              settings: settings,
+            );
+          }
+          return _badArgs(settings, 'Expected { "postId": String }');
         }
+
+        if (settings.name == AppRoutes.image) {
+          final args = settings.arguments;
+          if (args is Map && args['url'] is String) {
+            final url = args['url'] as String;
+            final heroTag = (args['heroTag'] ?? '') as String; // ??? ????????? ????? heroTag
+            return MaterialPageRoute(
+              builder: (_) => ImageViewer(url: url, heroTag: heroTag),
+              settings: settings,
+            );
+          }
+          return _badArgs(settings, 'Expected { "url": String, "heroTag"?: String }');
+        }
+
+        // ??? ?? route ??? ?????
+        return MaterialPageRoute(
+          builder: (_) => const Scaffold(
+            body: Center(child: Text('Route not found')),
+          ),
+          settings: settings,
+        );
       },
-      onUnknownRoute: (_) =>
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
+
+      // ??? ??????? (?? ???? buildTheme ?? theme.dart)
+      theme: buildTheme(),
     );
   }
 
-  MaterialPageRoute _badArgs(String message) {
+  // ???? ??? ????? ??? ????? ?????????? ?????
+  Route _badArgs(RouteSettings s, String message) {
     return MaterialPageRoute(
       builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Route error')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(message, textAlign: TextAlign.center),
-          ),
+        appBar: AppBar(title: const Text('Navigation error')),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Route "${s.name}" arguments error:\n$message'),
         ),
       ),
+      settings: s,
     );
   }
 }
