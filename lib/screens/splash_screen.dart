@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../constants.dart'; // <-- ??? ?????
+import 'package:land_photo/constants.dart';
 
 class SplashScreen extends StatefulWidget {
   static const String routeName = AppRoutes.splash; // '/'
