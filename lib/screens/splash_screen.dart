@@ -1,11 +1,10 @@
-// lib/screens/splash_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:land_photo/constants.dart';
-
 class SplashScreen extends StatefulWidget {
-  static const String routeName = AppRoutes.splash; // '/'
+  // ???? ?????? ??? ???????? ??????
+  static const String routeName = '/';
+
   const SplashScreen({super.key});
 
   @override
@@ -16,24 +15,28 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _goNext();
+    _bootstrap();
   }
 
-  Future<void> _goNext() async {
-    // ??? ???? ???????? ???? + ???? ?????? ???
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+  Future<void> _bootstrap() async {
+    // ??? ????? ???? ??? ???? ???????
+    await Future<void>.delayed(const Duration(milliseconds: 800));
 
     final session = Supabase.instance.client.auth.currentSession;
-    final nextRoute = (session == null) ? AppRoutes.login : AppRoutes.feed;
+
+    // ????? ?????? ?????? ?????? ?????
+    final String nextRoute = (session == null) ? '/login' : '/feed';
 
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, nextRoute);
+    Navigator.of(context).pushReplacementNamed(nextRoute);
   }
 
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }
