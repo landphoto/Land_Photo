@@ -1,9 +1,13 @@
-import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/storage_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+import '../ui/gradient_scaffold.dart';
+import '../ui/glass.dart';
 
 class UploadScreen extends StatefulWidget {
+  static const String routeName = '/upload';
   const UploadScreen({super.key});
 
   @override
@@ -11,46 +15,89 @@ class UploadScreen extends StatefulWidget {
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  bool _loading = false;
-  String? _url;
+  final _client = Supabase.instance.client;
+  final _picker = ImagePicker();
+  final _captionCtrl = TextEditingController();
+  bool _busy = false;
 
   Future<void> _pickAndUpload() async {
-    final picker = ImagePicker();
-    final x = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
-    if (x == null) return;
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw 'رجاءً سجّل دخول أولاً';
 
-    setState(() => _loading = true);
-    final bytes = await x.readAsBytes();
-    final url = await StorageService.I.uploadToBucket(
-      bucket: 'public', // غيّرها إن عندك bucket مختلف
-      path: x.name,
-      bytes: Uint8List.fromList(bytes),
-      contentType: 'image/${x.name.split('.').last}',
-    );
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _url = url;
-    });
+      final img = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 88);
+      if (img == null) {
+        setState(() => _busy = false);
+        return;
+      }
+
+      final bytes = await File(img.path).readAsBytes();
+      final id = const Uuid().v4();
+      final path = '${user.id}/$id.jpg';
+
+      await _client.storage.from('images').uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+          );
+
+      final publicUrl = _client.storage.from('images').getPublicUrl(path);
+
+      await _client.from('posts').insert({
+        'id': id,
+        'user_id': user.id,
+        'image_url': publicUrl,
+        'caption': _captionCtrl.text.trim(),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم الرفع بنجاح')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('فشل الرفع: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GradientScaffold(
       appBar: AppBar(title: const Text('Upload')),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FilledButton(
-                onPressed: _loading ? null : _pickAndUpload,
-                child: _loading ? const CircularProgressIndicator() : const Text('Pick & Upload'),
-              ),
-              const SizedBox(height: 12),
-              if (_url != null) Text('Uploaded: $_url'),
-            ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GlassContainer(
+                  child: TextField(
+                    controller: _captionCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Caption (اختياري)',
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _busy
+                    ? const SizedBox(
+                        width: 42, height: 42, child: CircularProgressIndicator())
+                    : GlassButton(
+                        onPressed: _pickAndUpload,
+                        child: const Text('Pick & Upload'),
+                      ),
+              ],
+            ),
           ),
         ),
       ),

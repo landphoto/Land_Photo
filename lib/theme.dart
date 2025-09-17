@@ -4,20 +4,24 @@ import 'package:google_fonts/google_fonts.dart';
 ThemeData appTheme() {
   final base = ThemeData.dark(useMaterial3: true);
   return base.copyWith(
-    colorScheme: base.colorScheme.copyWith(
-      primary: const Color(0xFFA9F1DF),
-      secondary: const Color(0xFF7AE0C2),
+    textTheme: GoogleFonts.poppinsTextTheme(base.textTheme).apply(
+      bodyColor: Colors.white,
+      displayColor: Colors.white,
     ),
-    textTheme: GoogleFonts.cairoTextTheme(base.textTheme),
-    appBarTheme: AppBarTheme(
-      backgroundColor: Colors.black,
-      foregroundColor: Colors.white,
+    scaffoldBackgroundColor: Colors.transparent,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      centerTitle: true,
-      titleTextStyle: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700),
+      centerTitle: false,
     ),
-    cardTheme: CardTheme(
-      color: Colors.white.withOpacity(.06),
+    colorScheme: base.colorScheme.copyWith(
+      primary: const Color(0xFFB494FF),
+      secondary: const Color(0xFF7E6BFF),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: Colors.white.withOpacity(0.08),
+      contentTextStyle: const TextStyle(color: Colors.white),
+      behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
   );
